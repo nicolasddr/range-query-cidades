@@ -1,7 +1,15 @@
 #ifndef __AVL__
 #define  __AVL__
 
-typedef int titem;
+typedef struct {
+    char nome[100];
+    float latitude;
+    float longitude;
+    int codigo_uf;
+    int ddd;
+    int codigo_ibge;
+} titem;
+
 
 typedef struct _node{
     titem item;
@@ -12,12 +20,18 @@ typedef struct _node{
     int h;
 }tnode;
 
-void avl_insere(tnode ** parv,titem reg);
-void avl_remove(tnode ** parv,titem reg);
+void avl_insere(tnode ** parv,titem reg, int (*compara)(titem, titem));
+void avl_remove(tnode ** parv,titem reg, int (*compara)(titem, titem));
 void avl_destroi(tnode * parv);
 
 void _rd(tnode ** pparv);
 void _re(tnode ** pparv);
 void _avl_rebalancear(tnode ** pparv);
+
+int compara_nome(titem a, titem b);
+int compara_latitude(titem a, titem b);
+int compara_longitude(titem a, titem b);
+int compara_codigo_uf(titem a, titem b);
+int compara_ddd(titem a, titem b);
 
 #endif

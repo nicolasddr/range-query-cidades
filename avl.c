@@ -1,6 +1,15 @@
-#include<stdio.h>
-#include<stdlib.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include "avl.h"
+#include "cJSON.c"
+#include "cJSON.h"
+
+tnode *avl_nome = NULL;
+tnode *avl_latitude = NULL;
+tnode *avl_longitude = NULL;
+tnode *avl_codigo_uf = NULL;
+tnode *avl_ddd = NULL;
 
 int max(int a,int b){
     return a>b?a:b;
@@ -16,8 +25,7 @@ int altura(tnode *arv){
     return ret;
 }
 
-
-void avl_insere(tnode ** parv,titem item){
+void avl_insere(tnode ** parv,titem item, int (*compara)(titem, titem)){
     if (*parv == NULL){
         *parv = (tnode *) malloc(sizeof(tnode));
         (*parv)->item = item;
@@ -27,13 +35,13 @@ void avl_insere(tnode ** parv,titem item){
         (*parv)->proximo = NULL;
         (*parv)->h = 0;
 
-    }else if(((*parv)->item - item)>0){
-        avl_insere(&(*parv)->esq,item);
+    }else if( compara((*parv)->item, item) > 0){
+        avl_insere(&(*parv)->esq, item, compara);
         if((*parv)->esq != NULL){
             (*parv)->esq->pai = *parv; //Adiciona o pai do novo nó
         }
-    }else if(((*parv)->item - item)<0){
-        avl_insere(&(*parv)->dir,item);
+    }else if(compara((*parv)->item, item) < 0){
+        avl_insere(&(*parv)->dir, item, compara);
         if((*parv)->dir != NULL){
             (*parv)->dir->pai = *parv; //Adiciona o pai do novo nó
         }
@@ -99,7 +107,6 @@ void _re(tnode **parv){
     y->h = max(altura(x),altura(C)) + 1;
 }
 
-
 void _avl_rebalancear(tnode **parv){
     int fb;
     int fbf;
@@ -144,16 +151,16 @@ tnode ** percorre_esq(tnode **arv){
         return &(aux->esq);
     }
 }
-void avl_remove(tnode **parv, titem reg){
+void avl_remove(tnode **parv, titem reg, int (*compara)(titem, titem)){
     int cmp;
     tnode *aux;
     tnode **sucessor;
     if (*parv != NULL){
-        cmp  = (*parv)->item  - reg;
+        cmp  = compara((*parv)->item, reg);
         if (cmp > 0){ /* ir esquerda*/
-            avl_remove(&((*parv)->esq), reg);
+            avl_remove(&((*parv)->esq), reg, compara);
         }else if (cmp < 0){ /*ir direita*/
-            avl_remove(&((*parv)->dir), reg);
+            avl_remove(&((*parv)->dir), reg, compara);
         }else{ /* ACHOU  */
 
             //Se o nó tem elemento proximo
@@ -179,7 +186,7 @@ void avl_remove(tnode **parv, titem reg){
                 }else{ /* tem dois filhos */
                     sucessor = percorre_esq(&(*parv)->dir);
                     (*parv)->item = (*sucessor)->item;
-                    avl_remove(&(*parv)->dir,(*sucessor)->item);
+                    avl_remove(&(*parv)->dir,(*sucessor)->item, compara);
                 }
             }
 
@@ -252,7 +259,7 @@ tnode * sucessor(tnode *no){
     //Se existe subarvore a direita
     if(aux->dir != NULL){
         aux = encontra_minimo(aux->dir); //Sucessor é o menor elemento dessa subarvore
-        printf("SUCESSOR: %d", aux->item);
+        //printf("SUCESSOR: %d", aux->item);
 
         return aux;
     }
@@ -264,25 +271,143 @@ tnode * sucessor(tnode *no){
         pai = aux->pai;
     }
 
-    printf("SUCESSOR: %d", pai->item);
+    //printf("SUCESSOR: %d", pai->item);
     return pai;
 
+}
+
+int compara_nome(titem a, titem b) {
+    return strcmp(a.nome, b.nome);
+}
+
+int compara_latitude(titem a, titem b) {
+    if (a.latitude < b.latitude) return -1;
+    if (a.latitude > b.latitude) return 1;
+    return 0;
+}
+
+int compara_longitude(titem a, titem b) {
+    if (a.longitude < b.longitude) return -1;
+    if (a.longitude > b.longitude) return 1;
+    return 0;
+}
+
+int compara_codigo_uf(titem a, titem b) {
+    return a.codigo_uf - b.codigo_uf;
+}
+
+int compara_ddd(titem a, titem b) {
+    return a.ddd - b.ddd;
+}
+
+// Função para ler e inserir cidades de um arquivo JSON nas AVLs
+void inserir_cidades_em_avls(const char *nome_arquivo) {
+    // Abrir o arquivo JSON e ler seu conteúdo
+    FILE *arquivo = fopen(nome_arquivo, "r");
+    if (arquivo == NULL) {
+        fprintf(stderr, "Erro ao abrir o arquivo JSON.\n");
+        return;
+    }
+
+    // Obter o tamanho do arquivo para alocar o buffer
+    fseek(arquivo, 0, SEEK_END);
+    long tamanho = ftell(arquivo);
+    fseek(arquivo, 0, SEEK_SET);
+
+    // Alocar um buffer para armazenar o conteúdo do arquivo JSON
+    char *buffer = (char *)malloc(tamanho + 1);
+    if (buffer == NULL) {
+        fprintf(stderr, "Erro ao alocar memória para o buffer.\n");
+        fclose(arquivo);
+        return;
+    }
+
+    // Ler o conteúdo do arquivo para o buffer
+    fread(buffer, 1, tamanho, arquivo);
+    fclose(arquivo);
+    buffer[tamanho] = '\0'; // Garantir terminação nula
+
+    // Parse do conteúdo JSON
+    cJSON *root = cJSON_Parse(buffer);
+    if (root == NULL) {
+        const char *erro = cJSON_GetErrorPtr();
+        if (erro != NULL) {
+            fprintf(stderr, "Erro no parse JSON: %s\n", erro);
+        }
+        free(buffer);
+        return;
+    }
+
+    // Suponha que o JSON seja um array de objetos de cidades
+    int num_cidades = cJSON_GetArraySize(root);
+    for (int i = 0; i < num_cidades; ++i) {
+        cJSON *cidade_json = cJSON_GetArrayItem(root, i);
+        if (cidade_json == NULL) {
+            continue; // Pular se não for um objeto válido
+        }
+
+        // Extrair os campos do objeto JSON
+        titem cidade;
+        cJSON *nome = cJSON_GetObjectItemCaseSensitive(cidade_json, "nome");
+        cJSON *latitude = cJSON_GetObjectItemCaseSensitive(cidade_json, "latitude");
+        cJSON *longitude = cJSON_GetObjectItemCaseSensitive(cidade_json, "longitude");
+        cJSON *codigo_uf = cJSON_GetObjectItemCaseSensitive(cidade_json, "codigo_uf");
+        cJSON *ddd = cJSON_GetObjectItemCaseSensitive(cidade_json, "ddd");
+        cJSON *codigo_ibge = cJSON_GetObjectItemCaseSensitive(cidade_json, "codigo_ibge");
+
+        if (cJSON_IsString(nome) && cJSON_IsNumber(latitude) && cJSON_IsNumber(longitude) &&
+            cJSON_IsNumber(codigo_uf) && cJSON_IsNumber(ddd) && cJSON_IsNumber(codigo_ibge)) {
+            strcpy(cidade.nome, nome->valuestring);
+            cidade.latitude = latitude->valuedouble;
+            cidade.longitude = longitude->valuedouble;
+            cidade.codigo_uf = codigo_uf->valueint;
+            cidade.ddd = ddd->valueint;
+            cidade.codigo_ibge = codigo_ibge->valueint;
+
+            // Inserir nas AVLs correspondentes
+            avl_insere(&avl_nome, cidade, compara_nome);
+            avl_insere(&avl_latitude, cidade, compara_latitude);
+            avl_insere(&avl_longitude, cidade, compara_longitude);
+            avl_insere(&avl_codigo_uf, cidade, compara_codigo_uf);
+            avl_insere(&avl_ddd, cidade, compara_ddd);
+        }
+    }
+
+    // Liberar recursos
+    cJSON_Delete(root);
+    free(buffer);
 }
 
 
 int main(){
 
-    tnode *raiz = NULL;
-
-    // Inserir vários itens, alguns com chaves iguais
     
-    avl_insere(&raiz, 10);
-    avl_insere(&raiz, 20);
-    avl_insere(&raiz, 30);
 
-    // Imprimir a árvore e as listas encadeadas
-    imprime_avl(raiz);
-    sucessor(raiz);
+
+    /*
+    titem item;
+
+    strcpy(item.nome, "Campo Grande");
+    item.codigo_ibge = 12345;
+    avl_insere(&avl_nome, item, compara_nome);
+
+    strcpy(item.nome, "São Paulo");
+    item.codigo_ibge = 123456;
+    avl_insere(&avl_nome, item, compara_nome);
+
+
+    tnode *no = sucessor(avl_nome);
+
+    titem item2;
+
+    strcpy(item2.nome, no->item.nome);
+
+    printf("CODIGO IBGE SUCESSOR: %d\n", no->item.codigo_ibge);
+    */
+  
+
+    inserir_cidades_em_avls("municipios.json");
+    
 
     return 0;
 }
