@@ -35,7 +35,7 @@ void avl_insere(tnode ** parv,titem item, int (*compara)(titem, titem)){
         (*parv)->proximo = NULL;
         (*parv)->h = 0;
 
-    }else if( compara((*parv)->item, item) > 0){
+    }else if(compara((*parv)->item, item) > 0){
         avl_insere(&(*parv)->esq, item, compara);
         if((*parv)->esq != NULL){
             (*parv)->esq->pai = *parv; //Adiciona o pai do novo nó
@@ -378,6 +378,108 @@ void inserir_cidades_em_avls(const char *nome_arquivo) {
     free(buffer);
 }
 
+//Função de busca comum
+tnode ** busca_avl(tnode **parv, titem item, int (*compara)(titem, titem)){
+    tnode *aux = *parv;
+
+    //Item buscado menor que no
+    if(compara((*parv)->item, item) > 0){
+        busca_avl(&(*parv)->esq, item, compara); //Busca na subarvore da esquerda
+    }else if(compara((*parv)->item, item) < 0){ //Item maior que o no
+        busca_avl(&(*parv)->dir, item, compara); //Busca na subarvore da direita
+    } else {
+        return &(*parv);
+    }   
+
+    return NULL;
+}
+
+
+//Função que percorre todos os nós de uma subarvore e adiciona os nós em uma lista
+tnode ** busca_avl_range(tnode **parv, titem item, int (*compara)(titem, titem), tnode **lista){
+    if(*parv == NULL){
+        return NULL;
+    }
+
+    tnode *aux = *parv;
+
+    //Lista aponta para o primeiro nó como o começo da lista, os próximos vão ser adicionados na lista proximo do tnode dele
+    if(*lista == NULL){ //Se a lista estiver vazia
+        *lista = parv;
+    } else {
+        aux->proximo = (*lista)->proximo; //Proximo do novo nó aponta para o elemento que já estava no próximo da lista
+        (*lista)->proximo = aux; //Novo entra no início da lista encadeada
+    }
+    
+    //Percorrer toda a arvore
+    busca_avl_range(&(*parv)->esq, item, compara, &(*lista)); //Percorre toda a subarvore da esquerda recursivamente
+    busca_avl_range(&(*parv)->dir, item, compara, &(*lista)); //Percorre toda a subarvore da direita recursivamente
+    
+    //Não encontrado
+    return &(*lista);
+}
+
+//Ve qual dado da cidade vai ser comparado e chama a função range com a comparação desse dado
+tnode ** item_comp(tnode **parv, int tipo_comparacao, int item_comparado, titem item_comparacao){
+
+    tnode **lista = (tnode *) malloc(sizeof(tnode));
+
+    //Faz busca comparando diferentes dados do titem dependendo da query
+    switch (item_comparado)
+    {
+    case 0: // 0 => nome
+        *lista = range(&(*parv), tipo_comparacao, item_comparado, item_comparacao, &(*lista), compara_nome);
+        break;
+    case 1: // 1 => latitude
+        *lista = range(&(*parv), tipo_comparacao, item_comparado, item_comparacao, &(*lista), compara_latitude);
+        break;
+    case 2: // 2 => longitude
+        *lista = range(&(*parv), tipo_comparacao, item_comparado, item_comparacao, &(*lista), compara_longitude);
+        break;
+    case 3: // 3 => codigo_uf
+        *lista = range(&(*parv), tipo_comparacao, item_comparado, item_comparacao, &(*lista), compara_codigo_uf);
+        break;
+    case 4: // 4 => ddd
+        *lista = range(&(*parv), tipo_comparacao, item_comparado, item_comparacao, &(*lista), compara_ddd);
+        break;
+    default:
+        break;
+    }
+
+    return &(*lista);
+}
+
+
+tnode ** range(tnode **parv, int tipo_comparacao, int item_comparado, titem item_comparacao, tnode **lista, int (*compara)(titem, titem)){
+    
+    //Cria a lista que vai conter os nós da range query
+    tnode **no_query = (tnode *) malloc(sizeof(tnode));
+
+
+    //Encontra nó da query
+    *no_query = busca_avl(&(*parv), item_comparacao, compara_nome);
+
+    //Busca todos os nós < ou > ou == da subarvore do no da query
+    switch (tipo_comparacao)
+    {
+    case 0: // 0 -> expressão de <, busca na subarvore da esquerda
+        *lista = busca_avl_range(&(*no_query)->esq, item_comparacao, compara_nome, &(*lista));
+        break;
+    case 1: // 1 -> expressão de >, busca na subarvore da direita
+        *lista = busca_avl_range(&(*no_query)->dir, item_comparacao, compara_nome, &(*lista));
+        break;
+    case 2: // 2 -> expressão de =, retorna elemento
+        *lista = no_query;
+        break;
+    default:
+        break;
+    }
+
+    //Retorna lista de elementos da query
+    return &(*lista);
+
+
+}
 
 int main(){
 
@@ -408,6 +510,9 @@ int main(){
 
     inserir_cidades_em_avls("municipios.json");
     
+    tnode **lista = (tnode *) malloc(sizeof(tnode));
+
+    *lista = item_comp(&avl_nome, 0, 0, avl_nome->item);
 
     return 0;
 }

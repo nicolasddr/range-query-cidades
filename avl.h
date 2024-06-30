@@ -34,4 +34,6 @@ int compara_longitude(titem a, titem b);
 int compara_codigo_uf(titem a, titem b);
 int compara_ddd(titem a, titem b);
 
+tnode ** range(tnode **parv, int tipo_comparacao, int item_comparado, titem item_comparacao, tnode **lista, int (*compara)(titem, titem));
+
 #endif
