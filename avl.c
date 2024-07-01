@@ -82,7 +82,6 @@ void _rd(tnode **parv){
     y->h = max(altura(B),altura(C)) + 1;
     x->h = max(altura(A),altura(y)) + 1;
 }
-
 void _re(tnode **parv){
     tnode * x = *parv; 
     tnode * y = x->dir;
@@ -106,7 +105,6 @@ void _re(tnode **parv){
     x->h = max(altura(A),altura(B)) + 1;
     y->h = max(altura(x),altura(C)) + 1;
 }
-
 void _avl_rebalancear(tnode **parv){
     int fb;
     int fbf;
@@ -135,6 +133,7 @@ void _avl_rebalancear(tnode **parv){
 }
 
 tnode ** percorre_esq(tnode **arv){
+
     tnode * aux = *arv;
 
     //Se há um nó próximo na lista encadeada, retorne ele
@@ -151,6 +150,7 @@ tnode ** percorre_esq(tnode **arv){
         return &(aux->esq);
     }
 }
+
 void avl_remove(tnode **parv, titem reg, int (*compara)(titem, titem)){
     int cmp;
     tnode *aux;
@@ -199,7 +199,6 @@ void avl_remove(tnode **parv, titem reg, int (*compara)(titem, titem)){
         }
     }
 }
-
 void avl_destroi(tnode *parv){
     if (parv!=NULL){
         avl_destroi(parv->esq);
@@ -209,36 +208,6 @@ void avl_destroi(tnode *parv){
     }
 }
 
-void imprime_no(tnode *no) {
-    while (no != NULL) {
-        printf("Item: %d\n", no->item);
-        no = no->proximo;
-    }
-}
-
-void imprime_avl(tnode *arv) {
-    if (arv == NULL) {
-        return;
-    }
-
-    // Percorre a subárvore esquerda
-    imprime_avl(arv->esq);
-
-    // Imprime o nó atual
-    printf("Item: %d\n", arv->item);
-
-    // Percorre a lista encadeada de chaves iguais
-    tnode *temp = arv->proximo;
-    while (temp != NULL) {
-        printf("    -> Duplicado: %d\n", temp->item);
-        temp = temp->proximo;
-    }
-
-
-
-    // Percorre a subárvore direita
-    imprime_avl(arv->dir);
-}
 
 tnode * encontra_minimo(tnode *arv){
     tnode *aux = arv;
@@ -300,219 +269,312 @@ int compara_ddd(titem a, titem b) {
     return a.ddd - b.ddd;
 }
 
-// Função para ler e inserir cidades de um arquivo JSON nas AVLs
-void inserir_cidades_em_avls(const char *nome_arquivo) {
-    // Abrir o arquivo JSON e ler seu conteúdo
-    FILE *arquivo = fopen(nome_arquivo, "r");
-    if (arquivo == NULL) {
-        fprintf(stderr, "Erro ao abrir o arquivo JSON.\n");
+
+void imprimir_campo_no(tnode *parv, int campo){
+    if (campo == 0) {//Nome
+        printf("Nome: %s, Codigo IBGE: %d\n", parv->item.nome, parv->item.codigo_ibge);
+    } else if (campo == 1) {//Latitude
+       printf("Latitude: %lf, Codigo IBGE: %d\n", parv->item.latitude, parv->item.codigo_ibge);
+    } else if (campo == 2) {//Longitude
+        printf("Longitude: %lf, Codigo IBGE: %d\n", parv->item.longitude, parv->item.codigo_ibge);
+    } else if (campo == 3) {//Código UF
+        printf("Codigo UF: %d, Codigo IBGE: %d\n", parv->item.codigo_uf, parv->item.codigo_ibge);
+    } else if (campo == 4) {//DD
+       printf("DDD: %d, Codigo IBGE: %d\n", parv->item.ddd, parv->item.codigo_ibge);
+    }
+}
+
+void imprimir_resultados(tnode *lista, int campo) {
+
+    if (lista == NULL) {
         return;
     }
 
-    // Obter o tamanho do arquivo para alocar o buffer
-    fseek(arquivo, 0, SEEK_END);
-    long tamanho = ftell(arquivo);
-    fseek(arquivo, 0, SEEK_SET);
+    tnode *atual = lista;
+    while (atual != NULL) {
+        imprimir_campo_no(atual, campo);
+        atual = atual->proximo; // Supondo que 'esq' aponta para o próximo elemento na lista
+    }
+}
 
-    // Alocar um buffer para armazenar o conteúdo do arquivo JSON
-    char *buffer = (char *)malloc(tamanho + 1);
-    if (buffer == NULL) {
-        fprintf(stderr, "Erro ao alocar memória para o buffer.\n");
-        fclose(arquivo);
+//Imprime todos os nós de uma subarvore
+void imprimir_arv(tnode *lista, int campo) {
+
+    if (lista == NULL) {
         return;
     }
 
-    // Ler o conteúdo do arquivo para o buffer
-    fread(buffer, 1, tamanho, arquivo);
-    fclose(arquivo);
-    buffer[tamanho] = '\0'; // Garantir terminação nula
+    tnode *atual = lista;
+    while (atual != NULL) {
+        imprimir_campo_no(atual, campo);    
+        atual = atual->proximo; // Supondo que 'esq' aponta para o próximo elemento na lista
+    }
+    imprimir_arv(lista->esq, campo);
+    imprimir_arv(lista->dir, campo);
 
-    // Parse do conteúdo JSON
-    cJSON *root = cJSON_Parse(buffer);
-    if (root == NULL) {
-        const char *erro = cJSON_GetErrorPtr();
-        if (erro != NULL) {
-            fprintf(stderr, "Erro no parse JSON: %s\n", erro);
-        }
-        free(buffer);
-        return;
+}
+
+void carregar_dados(const char *filename) {
+    FILE *file = fopen(filename, "r");
+    if (file == NULL) {
+        perror("Erro ao abrir o arquivo");
+        exit(EXIT_FAILURE);
     }
 
-    // Suponha que o JSON seja um array de objetos de cidades
-    int num_cidades = cJSON_GetArraySize(root);
-    for (int i = 0; i < num_cidades; ++i) {
-        cJSON *cidade_json = cJSON_GetArrayItem(root, i);
-        if (cidade_json == NULL) {
-            continue; // Pular se não for um objeto válido
+    fseek(file, 0, SEEK_END);
+    long fsize = ftell(file);
+    fseek(file, 0, SEEK_SET);
+
+    char *data = (char *)malloc(fsize + 1);
+    fread(data, 1, fsize, file);
+    fclose(file);
+
+    data[fsize] = 0;
+
+    cJSON *json = cJSON_Parse(data);
+    if (json == NULL) {
+        const char *error_ptr = cJSON_GetErrorPtr();
+        if (error_ptr != NULL) {
+            fprintf(stderr, "Erro antes do: %s\n", error_ptr);
         }
-
-        // Extrair os campos do objeto JSON
-        titem cidade;
-        cJSON *nome = cJSON_GetObjectItemCaseSensitive(cidade_json, "nome");
-        cJSON *latitude = cJSON_GetObjectItemCaseSensitive(cidade_json, "latitude");
-        cJSON *longitude = cJSON_GetObjectItemCaseSensitive(cidade_json, "longitude");
-        cJSON *codigo_uf = cJSON_GetObjectItemCaseSensitive(cidade_json, "codigo_uf");
-        cJSON *ddd = cJSON_GetObjectItemCaseSensitive(cidade_json, "ddd");
-        cJSON *codigo_ibge = cJSON_GetObjectItemCaseSensitive(cidade_json, "codigo_ibge");
-
-        if (cJSON_IsString(nome) && cJSON_IsNumber(latitude) && cJSON_IsNumber(longitude) &&
-            cJSON_IsNumber(codigo_uf) && cJSON_IsNumber(ddd) && cJSON_IsNumber(codigo_ibge)) {
-            strcpy(cidade.nome, nome->valuestring);
-            cidade.latitude = latitude->valuedouble;
-            cidade.longitude = longitude->valuedouble;
-            cidade.codigo_uf = codigo_uf->valueint;
-            cidade.ddd = ddd->valueint;
-            cidade.codigo_ibge = codigo_ibge->valueint;
-
-            // Inserir nas AVLs correspondentes
-            avl_insere(&avl_nome, cidade, compara_nome);
-            avl_insere(&avl_latitude, cidade, compara_latitude);
-            avl_insere(&avl_longitude, cidade, compara_longitude);
-            avl_insere(&avl_codigo_uf, cidade, compara_codigo_uf);
-            avl_insere(&avl_ddd, cidade, compara_ddd);
-        }
+        free(data);
+        exit(EXIT_FAILURE);
     }
 
-    // Liberar recursos
-    cJSON_Delete(root);
-    free(buffer);
+    int count = cJSON_GetArraySize(json);
+    for (int i = 0; i < count; i++) {
+        cJSON *item = cJSON_GetArrayItem(json, i);
+        
+        titem reg;
+        strcpy(reg.nome, cJSON_GetObjectItem(item, "nome")->valuestring);
+        reg.latitude = (float)cJSON_GetObjectItem(item, "latitude")->valuedouble;
+        reg.longitude = (float)cJSON_GetObjectItem(item, "longitude")->valuedouble;
+        reg.codigo_uf = cJSON_GetObjectItem(item, "codigo_uf")->valueint;
+        reg.ddd = cJSON_GetObjectItem(item, "ddd")->valueint;
+        reg.codigo_ibge = cJSON_GetObjectItem(item, "codigo_ibge")->valueint;
+
+        avl_insere(&avl_nome, reg, compara_nome);
+        avl_insere(&avl_latitude, reg, compara_latitude);
+        avl_insere(&avl_longitude, reg, compara_longitude);
+        avl_insere(&avl_codigo_uf, reg, compara_codigo_uf);
+        avl_insere(&avl_ddd, reg, compara_ddd);
+    }
+
+    cJSON_Delete(json);
+    free(data);
 }
 
 //Função de busca comum
-tnode ** busca_avl(tnode **parv, titem item, int (*compara)(titem, titem)){
-    tnode *aux = *parv;
+tnode *busca_avl(tnode *parv, titem item, int (*compara)(titem, titem)){
+    if(parv == NULL){
+        return NULL;
+    }
+    
+    int cmp = compara(parv->item, item);
 
     //Item buscado menor que no
-    if(compara((*parv)->item, item) > 0){
-        busca_avl(&(*parv)->esq, item, compara); //Busca na subarvore da esquerda
-    }else if(compara((*parv)->item, item) < 0){ //Item maior que o no
-        busca_avl(&(*parv)->dir, item, compara); //Busca na subarvore da direita
+    if(cmp > 0){
+        return busca_avl(parv->esq, item, compara); //Busca na subarvore da esquerda
+    }else if(cmp < 0){ //Item maior que o no
+        return busca_avl(parv->dir, item, compara); //Busca na subarvore da direita
     } else {
-        return &(*parv);
+        return parv;
     }   
 
-    return NULL;
 }
 
-
-//Função que percorre todos os nós de uma subarvore e adiciona os nós em uma lista
-tnode ** busca_avl_range(tnode **parv, titem item, int (*compara)(titem, titem), tnode **lista){
-    if(*parv == NULL){
+/*
+tnode * busca_avl_range(int menor_maior, tnode *parv, titem item, int (*compara)(titem, titem), tnode *lista){
+    if(parv == NULL){
         return NULL;
     }
 
-    tnode *aux = *parv;
+    tnode *aux = parv;
 
     //Lista aponta para o primeiro nó como o começo da lista, os próximos vão ser adicionados na lista proximo do tnode dele
-    if(*lista == NULL){ //Se a lista estiver vazia
-        *lista = parv;
+    if(lista == NULL){ //Se a lista estiver vazia
+        lista = parv;
     } else {
-        aux->proximo = (*lista)->proximo; //Proximo do novo nó aponta para o elemento que já estava no próximo da lista
-        (*lista)->proximo = aux; //Novo entra no início da lista encadeada
+        aux->proximo = lista->proximo; //Proximo do novo nó aponta para o elemento que já estava no próximo da lista
+        lista->proximo = aux; //Novo entra no início da lista encadeada
     }
     
     //Percorrer toda a arvore
-    busca_avl_range(&(*parv)->esq, item, compara, &(*lista)); //Percorre toda a subarvore da esquerda recursivamente
-    busca_avl_range(&(*parv)->dir, item, compara, &(*lista)); //Percorre toda a subarvore da direita recursivamente
+    if(menor_maior == 0){
+        busca_avl_range(2, parv->esq, item, compara, lista); //Percorre toda a subarvore da esquerda recursivamente
+
+    } else if(menor_maior == 1){
+        busca_avl_range(2, parv->dir, item, compara, lista); //Percorre toda a subarvore da direita recursivamente
+
+    } else {
+        busca_avl_range(2, parv->esq, item, compara, lista); //Percorre toda a subarvore da esquerda recursivamente
+        busca_avl_range(2, parv->dir, item, compara, lista); //Percorre toda a subarvore da direita recursivamente
+
+    }
     
-    //Não encontrado
-    return &(*lista);
+    return lista;
 }
+tnode * item_comp(tnode *parv, int tipo_comparacao, int item_comparado, titem item_comparacao){
+    tnode *lista = NULL;
 
-//Ve qual dado da cidade vai ser comparado e chama a função range com a comparação desse dado
-tnode ** item_comp(tnode **parv, int tipo_comparacao, int item_comparado, titem item_comparacao){
-
-    tnode **lista = (tnode *) malloc(sizeof(tnode));
 
     //Faz busca comparando diferentes dados do titem dependendo da query
     switch (item_comparado)
     {
     case 0: // 0 => nome
-        *lista = range(&(*parv), tipo_comparacao, item_comparado, item_comparacao, &(*lista), compara_nome);
+        lista = range(parv, tipo_comparacao, item_comparado, item_comparacao, lista, compara_nome);
         break;
     case 1: // 1 => latitude
-        *lista = range(&(*parv), tipo_comparacao, item_comparado, item_comparacao, &(*lista), compara_latitude);
+        lista = range(parv, tipo_comparacao, item_comparado, item_comparacao, lista, compara_latitude);
         break;
     case 2: // 2 => longitude
-        *lista = range(&(*parv), tipo_comparacao, item_comparado, item_comparacao, &(*lista), compara_longitude);
+        lista = range(parv, tipo_comparacao, item_comparado, item_comparacao, lista, compara_longitude);
         break;
     case 3: // 3 => codigo_uf
-        *lista = range(&(*parv), tipo_comparacao, item_comparado, item_comparacao, &(*lista), compara_codigo_uf);
+        lista = range(parv, tipo_comparacao, item_comparado, item_comparacao, lista, compara_codigo_uf);
         break;
     case 4: // 4 => ddd
-        *lista = range(&(*parv), tipo_comparacao, item_comparado, item_comparacao, &(*lista), compara_ddd);
+        lista = range(parv, tipo_comparacao, item_comparado, item_comparacao, lista, compara_ddd);
         break;
     default:
         break;
     }
 
-    return &(*lista);
+    return lista;
 }
-
-
-tnode ** range(tnode **parv, int tipo_comparacao, int item_comparado, titem item_comparacao, tnode **lista, int (*compara)(titem, titem)){
-    
-    //Cria a lista que vai conter os nós da range query
-    tnode **no_query = (tnode *) malloc(sizeof(tnode));
-
+tnode * range(tnode *parv, int tipo_comparacao, int item_comparado, titem item_comparacao, tnode *lista, int (*compara)(titem, titem)){
 
     //Encontra nó da query
-    *no_query = busca_avl(&(*parv), item_comparacao, compara_nome);
+    tnode *no_query = busca_avl(parv, item_comparacao, compara);
+
+    if (no_query == NULL) {
+        return lista; // Retorna a lista atual se o nó não for encontrado
+    }
 
     //Busca todos os nós < ou > ou == da subarvore do no da query
     switch (tipo_comparacao)
     {
     case 0: // 0 -> expressão de <, busca na subarvore da esquerda
-        *lista = busca_avl_range(&(*no_query)->esq, item_comparacao, compara_nome, &(*lista));
+        lista = busca_avl_range(0, no_query->esq, item_comparacao, compara, lista);
         break;
     case 1: // 1 -> expressão de >, busca na subarvore da direita
-        *lista = busca_avl_range(&(*no_query)->dir, item_comparacao, compara_nome, &(*lista));
+        lista = busca_avl_range(1, no_query->dir, item_comparacao, compara, lista);
         break;
     case 2: // 2 -> expressão de =, retorna elemento
-        *lista = no_query;
+        lista = no_query;
         break;
     default:
         break;
     }
 
     //Retorna lista de elementos da query
-    return &(*lista);
+    return lista;
 
+
+}
+tnode* busca_todos(tnode* parv, tnode* lista, int (*compara)(titem, titem)) {
+    if (parv == NULL) {
+        return lista;
+    }
+
+    // Busca na subárvore da direita (maiores)
+    lista = busca_todos(parv->dir, lista, compara);
+
+    // Adiciona o nó atual à lista
+    tnode* novo_no = (tnode*) malloc(sizeof(tnode));
+    *novo_no = *parv; // Copia os dados do nó atual para o novo nó
+    novo_no->proximo = lista;
+    lista = novo_no;
+
+    // Busca na subárvore da esquerda (menores)
+    lista = busca_todos(parv->esq, lista, compara);
+
+    return lista;
+}
+*/
+
+
+void seleciona_busca(tnode *parv, int comparacao, titem criterio, int (*compara)(titem, titem), int campo){
+    tnode *resultados = NULL;
+    tnode *no = NULL;
+    
+    if(comparacao == 0){
+        //Imprime todos os nós menores
+        no = busca_avl(parv, criterio, compara);
+        imprimir_arv(no->esq, campo);
+    } else if(comparacao == 1){
+        //Imprime todos os nós maiores
+        no = busca_avl(parv, criterio, compara);
+        imprimir_arv(no->dir, campo);
+    } else if(comparacao == 2){
+        //Imprime todos os nós iguais ao dado comparado
+        resultados = busca_avl(parv, criterio, compara);
+        imprimir_resultados(resultados, campo);
+    }
+}
+
+
+
+void buscar_por_criterios() {
+    int campo;
+    int comparacao;
+    titem criterio;
+    char nome[50];
+    
+    tnode *parv = NULL;
+    
+
+    printf("Escolha o campo para a busca:\n");
+    printf("0 - Nome\n");
+    printf("1 - Latitude\n");
+    printf("2 - Longitude\n");
+    printf("3 - Codigo UF\n");
+    printf("4 - DDD\n");
+    scanf("%d", &campo);
+    
+    printf("Escolha o tipo de comparacao:\n");
+    printf("0 - Menor que (<)\n");
+    printf("1 - Maior que (>)\n");
+    printf("2 - Igual a (=)\n");
+    scanf("%d", &comparacao);
+
+    tnode *resultados = NULL;
+
+    if (campo == 0) {
+        printf("Digite o nome: ");
+        getchar();
+        fgets(nome, sizeof(nome), stdin);
+        nome[strcspn(nome, "\n")] = 0; // Remover o caractere de nova linha do final da string
+        strcpy(criterio.nome, nome);
+
+        seleciona_busca(avl_nome, comparacao, criterio, compara_nome, campo);
+    } else if (campo == 1) {
+        printf("Digite a latitude: ");
+        scanf("%f", &criterio.latitude);
+        seleciona_busca(avl_latitude, comparacao, criterio, compara_latitude, campo);
+    } else if (campo == 2) {
+        printf("Digite a longitude: ");
+        scanf("%f", &criterio.longitude);
+        seleciona_busca(avl_longitude, comparacao, criterio, compara_longitude, campo);
+    } else if (campo == 3) {
+        printf("Digite o codigo UF: ");
+        scanf("%d", &criterio.codigo_uf);
+        seleciona_busca(avl_codigo_uf, comparacao, criterio, compara_codigo_uf, campo);
+    } else if (campo == 4) {
+        printf("Digite o DDD: ");
+        scanf("%d", &criterio.ddd);
+        seleciona_busca(avl_ddd, comparacao, criterio, compara_ddd, campo);
+    }
 
 }
 
 int main(){
 
-    
+    //inserir_cidades_em_avls("municipios.json");
+    carregar_dados("municipios.json");
 
+    buscar_por_criterios();
 
-    /*
-    titem item;
-
-    strcpy(item.nome, "Campo Grande");
-    item.codigo_ibge = 12345;
-    avl_insere(&avl_nome, item, compara_nome);
-
-    strcpy(item.nome, "São Paulo");
-    item.codigo_ibge = 123456;
-    avl_insere(&avl_nome, item, compara_nome);
-
-
-    tnode *no = sucessor(avl_nome);
-
-    titem item2;
-
-    strcpy(item2.nome, no->item.nome);
-
-    printf("CODIGO IBGE SUCESSOR: %d\n", no->item.codigo_ibge);
-    */
-  
-
-    inserir_cidades_em_avls("municipios.json");
-    
-    tnode **lista = (tnode *) malloc(sizeof(tnode));
-
-    *lista = item_comp(&avl_nome, 0, 0, avl_nome->item);
 
     return 0;
 }
